@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/review", label: "Review" },
   { href: "/reports", label: "Reports" },
   { href: "/subscriptions", label: "Subscriptions" },
+  { href: "/supplies", label: "Supplies" },
 ];
 
 export default async function RootLayout({

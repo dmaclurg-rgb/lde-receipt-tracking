@@ -39,14 +39,27 @@ enum TransactionSource {
   manual
 }
 
+// Team logins, admin-assigned (no self-service signup) — see
+// web/scripts/create-user.ts. Replaces the earlier Google OAuth approach
+// so the CEO can hand out credentials directly instead of managing a
+// Google Cloud OAuth consent screen and a team-email allowlist.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
 // Canonical properties, mirrors receipt-recon/houses.py::HOUSES so the app
 // and the CLI matcher never drift on naming.
 model Property {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  createdAt    DateTime      @default(now())
-  receipts     Receipt[]
-  transactions Transaction[]
+  id            String        @id @default(cuid())
+  name          String        @unique
+  createdAt     DateTime      @default(now())
+  receipts      Receipt[]
+  transactions  Transaction[]
+  supplyOrders  SupplyOrder[]
 }
 
 model Receipt {
@@ -122,4 +135,87 @@ model TransactionReceipt {
   receipt       Receipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 
   @@id([transactionId, receiptId])
+}
+
+enum SupplyVendor {
+  amazon
+  instacart
+  costco
+  home_depot
+  specialty
+  pool_supply
+  other
+}
+
+enum SupplyOrderStatus {
+  pending
+  ordered
+  delivered
+}
+
+// Catalog of purchasable supply items, seeded from
+// prisma/seed-supply-items.json (generated from the team's supply
+// spreadsheet). `url` is the vendor product link teams click through to buy;
+// kept editable here rather than hard-coded so links can be fixed without a
+// deploy.
+model SupplyItem {
+  id               String        @id @default(cuid())
+  name             String        @unique
+  vendor           SupplyVendor
+  url              String?
+  imageUrl         String?
+  alternativeNote  String?
+  notes            String?
+  // Shown in the "Commonly Purchased" tab on the ordering page instead of
+  // buried in the full catalog.
+  isCommon         Boolean       @default(false)
+  // e.g. ["Twin XL","Queen","King","Cal King"] for sheets/duvets/pillowcases;
+  // null for items where a size selection doesn't apply.
+  sizeOptions      Json?
+  active           Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  orderItems       SupplyOrderItem[]
+}
+
+// One order sheet per property per submission. No approval workflow — the
+// office places every order on the back end, so this is just
+// pending (submitted) -> ordered (placed with vendor) -> delivered.
+model SupplyOrder {
+  id                String            @id @default(cuid())
+  propertyId        String
+  property          Property          @relation(fields: [propertyId], references: [id])
+  requestedByEmail  String
+  requestedByName   String?
+  status            SupplyOrderStatus @default(pending)
+  notes             String?
+  orderedByEmail    String?
+  orderedAt         DateTime?
+  orderConfirmation String?
+  expectedDelivery  DateTime?
+  deliveredAt       DateTime?
+  deliveryNotes     String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  items SupplyOrderItem[]
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model SupplyOrderItem {
+  id           String      @id @default(cuid())
+  orderId      String
+  order        SupplyOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // Null when this is a pasted ad-hoc link instead of a catalog item.
+  supplyItemId String?
+  supplyItem   SupplyItem? @relation(fields: [supplyItemId], references: [id])
+  adHocName    String?
+  adHocUrl     String?
+  quantity     Int         @default(1)
+  size         String?
+  notes        String?
+
+  @@index([orderId])
 }

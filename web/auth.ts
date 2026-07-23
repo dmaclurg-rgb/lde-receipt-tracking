@@ -1,22 +1,48 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
-const allowedEmails = new Set(
-  (process.env.ALLOWED_TEAM_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean)
-);
-
+// Admin-assigned logins (see scripts/create-user.ts) instead of Google
+// OAuth — there's no self-service signup; the CEO/admin creates each
+// teammate's account directly.
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [Google],
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
   },
+  providers: [
+    Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      authorize: async (credentials) => {
+        const email =
+          typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : null;
+        const password = typeof credentials?.password === "string" ? credentials.password : null;
+        if (!email || !password) return null;
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return null;
+
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
+
+        return { id: user.id, email: user.email, name: user.name };
+      },
+    }),
+  ],
   callbacks: {
-    async signIn({ user }) {
-      if (!user.email) return false;
-      return allowedEmails.has(user.email.toLowerCase());
+    async jwt({ token, user }) {
+      if (user?.email) token.email = user.email;
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && typeof token.email === "string") {
+        session.user.email = token.email;
+      }
+      return session;
     },
   },
 });

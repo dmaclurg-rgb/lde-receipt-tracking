@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { signIn } from "@/auth";
+import LoginForm from "./LoginForm";
 
 export default function LoginPage() {
   return (
@@ -12,22 +12,8 @@ export default function LoginPage() {
         priority
         className="h-14 w-auto"
       />
-      <p className="text-sm text-neutral-400">
-        Sign in with your allowlisted Google account to continue.
-      </p>
-      <form
-        action={async () => {
-          "use server";
-          await signIn("google", { redirectTo: "/" });
-        }}
-      >
-        <button
-          type="submit"
-          className="rounded-md bg-brand-gold px-5 py-2.5 font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover"
-        >
-          Sign in with Google
-        </button>
-      </form>
+      <p className="text-sm text-neutral-400">Sign in with your team account to continue.</p>
+      <LoginForm />
     </main>
   );
 }

@@ -16,16 +16,18 @@ python3 -m venv .venv
 # Web app:
 cd web
 npm install
-cp .env.example .env.local   # then fill in what you have (see below)
+cp .env.example .env.local   # generate AUTH_SECRET, see below
 npx prisma migrate dev       # creates prisma/dev.db
-npx tsx prisma/seed.ts       # seeds Property table from houses.py
+npx tsx prisma/seed.ts       # seeds Property table + supply catalog
+npx tsx scripts/create-user.ts you@example.com "a strong password" "Your Name"
 npm run dev
 ```
 
-Open http://localhost:3000. Without any of the credentials below configured,
-the app still fully works: files save to `web/local-storage/` instead of
-Google Drive, and Notion sync silently no-ops (logs to the console instead of
-throwing) — see `lib/storage/index.ts` and `lib/notion.ts`.
+Open http://localhost:3000 and sign in with the login you just created.
+Google Drive and Notion aren't required to run the app locally: files save
+to `web/local-storage/` instead of Google Drive, and Notion sync silently
+no-ops (logs to the console instead of throwing) — see
+`lib/storage/index.ts` and `lib/notion.ts`.
 
 ## Credentials only you can create
 
@@ -33,20 +35,20 @@ None of these can be provisioned by an AI agent — they require your own
 Google/Notion/Slack accounts and, for Google Cloud, billing/consent-screen
 setup that only an account owner can click through.
 
-### 1. Google sign-in (required for anyone to log in at all)
+### 1. Team logins (admin-assigned, no Google account needed)
 
-1. Go to https://console.cloud.google.com/apis/credentials, create (or reuse)
-   a project.
-2. Configure the OAuth consent screen (External or Internal, your choice) —
-   just needs an app name and support email.
-3. Create an OAuth client ID, type **Web application**.
-   - Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-     for local dev; add your production URL's equivalent once deployed.
-4. Put the client ID/secret in `.env.local` as `AUTH_GOOGLE_ID` /
-   `AUTH_GOOGLE_SECRET`.
-5. Set `ALLOWED_TEAM_EMAILS` to a comma-separated list of every teammate's
-   Google account email (mixing `@luxurydesertescapes.com` and personal
-   Gmail addresses is fine — that's exactly what the allowlist is for).
+There's no OAuth and no self-service signup — you create each teammate's
+login directly:
+
+```bash
+npx tsx scripts/create-user.ts drew@luxurydesertescapes.com "a strong password" "Drew"
+npx tsx scripts/create-user.ts july@luxurydesertescapes.com "a different password" "July"
+```
+
+Run it again with the same email to change someone's password (it upserts).
+Run it once locally now so you have a login to test with, and again against
+production once Postgres is set up (see below) — it just needs `DATABASE_URL`
+pointed at whichever database you want the login created in.
 
 ### 2. Google Drive storage (optional until you want real Drive filing)
 
@@ -137,8 +139,7 @@ Two independently-deployable pieces:
 
 Once both are up, set `MATCHING_SERVICE_URL` on the Vercel deployment to
 the FastAPI service's public URL, and use the Vercel deployment's URL as
-the Slack Event Subscriptions Request URL above and as the Google OAuth
-redirect URI (`<url>/api/auth/callback/google`).
+the Slack Event Subscriptions Request URL above.
 
 ## Production database
 
