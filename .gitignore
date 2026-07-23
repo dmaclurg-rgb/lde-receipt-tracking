@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+*.swp
+
+# Claude Code local state
+.claude/
+
+# Node
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/*.tsbuildinfo
+
+# Prisma / DB
+web/prisma/dev.db
+web/prisma/dev.db-journal
+
+# Python
+receipt-recon/__pycache__/
+receipt-recon/**/__pycache__/
+receipt-recon/.venv/
+receipt-recon/*.pyc
+receipt-recon/reports/*.csv
+
+# Local file storage fallback (receipt images/PDFs land here in dev)
+web/local-storage/
+
+# Secrets (web/.env holds only the non-secret DATABASE_URL and is committed)
+*.env
+!*.env.example
+!web/.env

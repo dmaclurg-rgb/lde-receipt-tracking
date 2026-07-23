@@ -1,0 +1,117 @@
+// Prisma schema for the LDE receipt tracking system.
+// Dev uses SQLite (file at prisma/dev.db, gitignored); swap the datasource
+// to postgresql when deploying (see SETUP.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum PaymentMethod {
+  bank_transfer
+  zelle
+  wire
+  bofa_card
+  citi_card
+  home_depot_card
+}
+
+enum Category {
+  overhead
+  property
+}
+
+enum ReceiptSource {
+  app_upload
+  app_camera
+  slack
+  email_auto
+}
+
+enum TransactionSource {
+  bofa
+  citi
+  home_depot
+  manual
+}
+
+// Canonical properties, mirrors receipt-recon/houses.py::HOUSES so the app
+// and the CLI matcher never drift on naming.
+model Property {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  createdAt    DateTime      @default(now())
+  receipts     Receipt[]
+  transactions Transaction[]
+}
+
+model Receipt {
+  id            String        @id @default(cuid())
+  // Storage backend fields — exactly one of (fileId+fileUrl) or storagePath
+  // is populated, depending on which StorageAdapter is active. See
+  // web/lib/storage/.
+  fileId        String?
+  fileUrl       String?
+  storagePath   String?
+  uploadedBy    String
+  category      Category
+  propertyId    String?
+  property      Property?     @relation(fields: [propertyId], references: [id])
+  description   String
+  paymentMethod PaymentMethod
+  source        ReceiptSource
+  capturedAt    DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  // Populated once the Notion ledger sync succeeds; null means "not synced
+  // yet" (e.g. NOTION_TOKEN isn't configured), not an error state.
+  notionPageId  String?
+
+  transactions TransactionReceipt[]
+
+  @@index([capturedAt])
+  @@index([propertyId])
+}
+
+// Generalizes receipt-recon's Charge (bofa.py/citi.py) and HDRow
+// (home_depot.py) to every payment method, including manually-logged
+// bank/Zelle/wire entries that have no statement PDF to parse.
+model Transaction {
+  id            String            @id @default(cuid())
+  source        TransactionSource
+  issuer        String?
+  last4         String?
+  txnDate       DateTime
+  postDate      DateTime?
+  description   String
+  amountCents   Int
+  paymentMethod PaymentMethod
+  category      Category?
+  propertyId    String?
+  property      Property?         @relation(fields: [propertyId], references: [id])
+  needsReview   Boolean           @default(true)
+  isSplit       Boolean           @default(false)
+  sourceFile    String?
+  notionPageId  String?
+  createdAt     DateTime          @default(now())
+
+  receipts TransactionReceipt[]
+
+  @@index([txnDate])
+  @@index([propertyId])
+  @@index([needsReview])
+}
+
+// Join table: a transaction can be covered by multiple receipts (itemized
+// splits) and, in principle, a receipt could cover more than one line item.
+model TransactionReceipt {
+  transactionId String
+  receiptId     String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  receipt       Receipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@id([transactionId, receiptId])
+}
