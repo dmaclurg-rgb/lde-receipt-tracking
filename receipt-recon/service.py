@@ -20,6 +20,7 @@ from typing import Any
 
 from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 import bofa
 import citi
@@ -94,6 +95,28 @@ def properties() -> dict:
     """Canonical property list — kept in sync with web/prisma/seed-properties.json
     via receipt-recon/export_houses.py."""
     return {"properties": houses.all_canonical_names()}
+
+
+class ResolvePropertyRequest(BaseModel):
+    text: str
+
+
+@app.post("/resolve-property")
+def resolve_property(req: ResolvePropertyRequest) -> dict:
+    """Resolve free text (a Slack caption, a receipt description) to a
+    canonical property name using the same alias rules houses.py applies to
+    Home Depot job names — so a team member typing "stalion" or "the ranch"
+    in Slack matches the same way a messy Home Depot job name would.
+
+    Returns ``house: null`` (route to human review) when nothing matches,
+    or the ``OVERHEAD`` sentinel for shared/business-expense mentions.
+    """
+    resolved = houses.resolve(req.text)
+    if resolved is None:
+        return {"house": None}
+    if resolved == houses.OVERHEAD:
+        return {"house": "OVERHEAD"}
+    return {"house": resolved}
 
 
 @app.post("/parse-statement")

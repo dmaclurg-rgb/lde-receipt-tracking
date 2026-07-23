@@ -80,14 +80,87 @@ else breaks.
 Until this is set, ledger syncs are logged to the console and skipped —
 nothing else breaks.
 
-### 4. Slack, hosting, additional email inboxes
+### 4. Slack ingestion (Phase 2 — the code is built, this is what's left)
 
-These are Phase 2/3 work — see [`../ROADMAP.md`](../ROADMAP.md). They need a
-Slack app, a hosting account, and access to 4 more inboxes, none of which an
-AI agent can create on your behalf.
+The receipt/supply/other/CEO channels feed into the exact same pipeline as
+the app's Add Receipt form via `app/api/slack/events/route.ts`. To turn it
+on:
+
+1. Go to https://api.slack.com/apps → **Create New App** → From scratch.
+   Name it something like "LDE Receipt Bot", pick your workspace.
+2. **OAuth & Permissions** → add these Bot Token Scopes:
+   - `channels:history` (read messages in the channels it's in)
+   - `files:read` (download the receipt photos people post)
+   - `chat:write` (post the "✅ Logged to X" confirmation reply)
+   - `users:read.email` (optional — attributes receipts to a real email
+     instead of a Slack user ID; skip if you'd rather not grant it)
+3. Still on **OAuth & Permissions**, click **Install to Workspace**, then
+   copy the **Bot User OAuth Token** (`xoxb-...`) into `.env.local` /
+   your production env as `SLACK_BOT_TOKEN`.
+4. **Basic Information** → copy the **Signing Secret** into
+   `SLACK_SIGNING_SECRET`.
+5. **Event Subscriptions** → toggle on, Request URL:
+   `https://<your-deployed-url>/api/slack/events` (this needs the app
+   deployed first — see deployment below; Slack verifies the URL live with
+   a real signed request, `http://localhost` won't work here).
+   Under "Subscribe to bot events", add `message.channels`.
+6. Invite the bot to each channel you want it watching:
+   `/invite @LDE Receipt Bot` in the receipt channel, supply channel, other
+   channel, and the CEO's channel.
+7. In each of those channels, right-click → **View channel details** →
+   copy the Channel ID (bottom of the panel), and set
+   `SLACK_MONITORED_CHANNELS` to the comma-separated list. Leave it empty
+   to watch every channel the bot's been invited to.
+
+Until this is configured the route just 401s (bad/missing signature) —
+nothing else in the app is affected.
+
+## Deployment (Phase 2)
+
+Two independently-deployable pieces:
+
+- **`web/`** (Next.js) → **Vercel** is the path of least resistance for a
+  Next.js app: connect the GitHub repo, set the root directory to `web/`,
+  and paste in every `.env.local` value as a Vercel environment variable
+  (plus `MATCHING_SERVICE_URL` pointed at wherever you deploy the Python
+  service below, and a production `DATABASE_URL` — see next section).
+- **`receipt-recon/service.py`** (FastAPI) → needs a host that stays
+  running (unlike Vercel's serverless functions, which cold-start/sleep —
+  fine for the web app, not for this always-on matching service). A
+  `Dockerfile` is already in `receipt-recon/`. Render, Fly.io, and Railway
+  all support "deploy this Dockerfile" directly from the GitHub repo with a
+  free/cheap tier — pick whichever you already have an account with, or
+  Render if starting fresh (simplest UI for a single Docker service).
+  Note: this Dockerfile hasn't been build-tested in this environment (no
+  Docker available on this dev machine) — do a `docker build .` locally
+  first if you have Docker, or just deploy and check the host's build logs.
+
+Once both are up, set `MATCHING_SERVICE_URL` on the Vercel deployment to
+the FastAPI service's public URL, and use the Vercel deployment's URL as
+the Slack Event Subscriptions Request URL above and as the Google OAuth
+redirect URI (`<url>/api/auth/callback/google`).
 
 ## Production database
 
-Swap SQLite for Postgres before deploying: change `provider = "sqlite"` to
-`provider = "postgresql"` in `prisma/schema.prisma` and point `DATABASE_URL`
-at your Postgres instance, then `npx prisma migrate deploy`.
+SQLite (`prisma/dev.db`) is a single file — fine for local dev, not for a
+deployed app with concurrent writes. Before deploying:
+
+1. Provision a Postgres database. **Neon** (neon.tech) is a good default —
+   serverless Postgres, generous free tier, no credit card required, and
+   it plugs into Vercel with one click (Vercel's integrations marketplace
+   has a native Neon option that sets `DATABASE_URL` for you).
+2. In `prisma/schema.prisma`, change:
+   ```
+   datasource db {
+     provider = "postgresql"   // was "sqlite"
+     url      = env("DATABASE_URL")
+   }
+   ```
+3. Delete `prisma/migrations/` and run `npx prisma migrate dev --name init`
+   once against the new Postgres `DATABASE_URL` — SQLite and Postgres
+   migration SQL aren't interchangeable, so this regenerates a clean,
+   Postgres-flavored migration history (this is Prisma's own recommended
+   procedure when switching providers, not a workaround).
+4. Run `npx tsx prisma/seed.ts` once against production to seed properties.
+5. From then on, deploys run `npx prisma migrate deploy` (not `migrate dev`)
+   to apply new migrations without prompting.

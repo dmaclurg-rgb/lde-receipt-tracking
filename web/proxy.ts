@@ -7,7 +7,10 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
   const isLoginPage = req.nextUrl.pathname === "/login";
-  if (!req.auth && !isAuthRoute && !isLoginPage) {
+  // Slack calls this server-to-server with no browser session — it proves
+  // itself via its own request signature (see lib/slack.ts), not a cookie.
+  const isSlackWebhook = req.nextUrl.pathname === "/api/slack/events";
+  if (!req.auth && !isAuthRoute && !isLoginPage && !isSlackWebhook) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     return NextResponse.redirect(loginUrl);
   }

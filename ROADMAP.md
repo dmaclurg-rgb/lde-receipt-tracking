@@ -13,12 +13,15 @@
 - [x] Google Drive storage adapter (falls back to local disk until credentials are set).
 - [x] Notion ledger sync adapter (no-ops until credentials are set).
 
-## Phase 2 — Slack bot + hosting
+## Phase 2 — Slack bot + hosting (code built; deployment is on you)
 
-- [ ] Real Slack app (bot token + Events API) so the receipt/supply/other channels and a CEO channel feed into the same pipeline as app uploads, running independently of any Claude session.
-- [ ] Deploy `web/` + `receipt-recon/service.py` somewhere reachable 24/7 (Vercel + a small always-on host for the Python service, or one Docker host).
-- [ ] Swap SQLite for production Postgres (`prisma/schema.prisma` datasource).
-- **You'll need to provision:** a hosting account, a Slack app (create at api.slack.com, bot token + signing secret), production Postgres.
+- [x] Slack Events API webhook (`app/api/slack/events/route.ts`) — verifies Slack's request signature, handles the URL-verification handshake, filters to configured channels, downloads photos/PDFs people post, resolves the property from the caption text via the same `houses.py` alias rules the CLI uses (`/resolve-property` on the matching service), and feeds into the same `createReceipt()` pipeline the app's Add Receipt form uses. Falls back to Company Overhead + a Slack reply flagging it for review when the property can't be confidently matched — never silently misfiled. De-dupes on Slack's automatic retries. Tested end-to-end with simulated signed Slack payloads (`web/scripts/smoke-test-slack.ts`), not yet against a real Slack app.
+- [x] `receipt-recon/Dockerfile` — containerizes the matching service for deployment. Not build-tested (no Docker on the dev machine this was built on) — verify with `docker build .` if you have Docker, or check the host's build logs after deploying.
+- [x] Postgres-ready schema + documented migration procedure (see `web/SETUP.md`) — local dev stays on SQLite since it's simpler and there's no functional difference for a single dev; production needs a real Postgres (Neon recommended).
+- [ ] Actually deploy `web/` (Vercel) and the matching service (Render/Fly/Railway) so the Slack webhook and team logins work without this dev machine running.
+- [ ] Create the real Slack app and invite the bot to the receipt/supply/other/CEO channels.
+- [ ] Provision production Postgres and run the migration switch.
+- **You'll need to provision:** a Vercel account (or similar) for the web app, a Docker-capable host for the matching service, a Slack app (api.slack.com — bot token + signing secret), a Postgres database (Neon recommended). Exact steps for all four are in `web/SETUP.md`.
 
 ## Phase 3 — Email auto-ingestion (5 inboxes, hourly)
 

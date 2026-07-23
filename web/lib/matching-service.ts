@@ -58,3 +58,21 @@ export async function reconcileStatements(files: File[]): Promise<ReconcileRespo
   }
   return res.json();
 }
+
+/**
+ * Resolves free text (a Slack message caption) to a canonical property name
+ * using the exact same alias rules houses.py applies to Home Depot job
+ * names. Returns null (route to review) or the "OVERHEAD" sentinel.
+ */
+export async function resolvePropertyFromText(text: string): Promise<string | null> {
+  const res = await fetch(`${BASE_URL}/resolve-property`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    throw new Error(`Matching service error (${res.status})`);
+  }
+  const body = await res.json();
+  return body.house;
+}

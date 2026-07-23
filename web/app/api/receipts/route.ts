@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { storage } from "@/lib/storage";
-import { upsertLedgerRow } from "@/lib/notion";
-import { OVERHEAD_OPTION_VALUE, PAYMENT_METHODS } from "@/lib/constants";
-import type { Category } from "@prisma/client";
+import { createReceipt, UnknownPropertyError } from "@/lib/receipts";
+import { PAYMENT_METHODS } from "@/lib/constants";
 
 const FieldsSchema = z.object({
   property: z.string().min(1),
@@ -37,61 +34,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "At least one file is required." }, { status: 400 });
   }
 
-  const isOverhead = property === OVERHEAD_OPTION_VALUE;
-  const category: Category = isOverhead ? "overhead" : "property";
-  const propertyRecord = isOverhead
-    ? null
-    : await prisma.property.findUnique({ where: { id: property } });
-  if (!isOverhead && !propertyRecord) {
-    return NextResponse.json({ error: "Unknown property." }, { status: 400 });
-  }
-
-  const now = new Date();
-  const folderLabel = isOverhead ? "Company Overhead" : propertyRecord!.name;
-
-  const created = [];
-  for (const file of files) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const stored = await storage.save({
-      buffer,
-      filename: file.name || "receipt",
-      mimeType: file.type || "application/octet-stream",
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-      folderLabel,
-    });
-
-    const receipt = await prisma.receipt.create({
-      data: {
-        fileId: stored.fileId,
-        fileUrl: stored.fileUrl,
-        storagePath: stored.storagePath,
-        uploadedBy: session.user.email,
-        category,
-        propertyId: propertyRecord?.id,
-        description,
-        paymentMethod: paymentMethod as (typeof PAYMENT_METHODS)[number],
-        source,
-        capturedAt: now,
-      },
-    });
-
-    const notionPageId = await upsertLedgerRow({
-      title: description,
-      date: now,
-      amountCents: 0, // receipts don't carry a parsed amount until matched to a transaction
-      property: propertyRecord?.name ?? null,
-      category,
-      paymentMethod: receipt.paymentMethod,
-      needsReview: true,
-      fileUrl: stored.fileUrl,
-    });
-    if (notionPageId) {
-      await prisma.receipt.update({ where: { id: receipt.id }, data: { notionPageId } });
+  try {
+    const created = [];
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      created.push(
+        await createReceipt({
+          buffer,
+          filename: file.name || "receipt",
+          mimeType: file.type || "application/octet-stream",
+          property,
+          description,
+          paymentMethod: paymentMethod as (typeof PAYMENT_METHODS)[number],
+          source,
+          uploadedBy: session.user.email,
+        })
+      );
     }
-
-    created.push(receipt);
+    return NextResponse.json({ receipts: created }, { status: 201 });
+  } catch (err) {
+    if (err instanceof UnknownPropertyError) {
+      return NextResponse.json({ error: "Unknown property." }, { status: 400 });
+    }
+    throw err;
   }
-
-  return NextResponse.json({ receipts: created }, { status: 201 });
 }

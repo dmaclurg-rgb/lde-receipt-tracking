@@ -62,18 +62,26 @@ model Receipt {
   propertyId    String?
   property      Property?     @relation(fields: [propertyId], references: [id])
   description   String
-  paymentMethod PaymentMethod
+  // Nullable: the app's Add Receipt form always collects this, but Slack
+  // messages often don't state a payment method explicitly — those land as
+  // null rather than a guessed value, for human follow-up.
+  paymentMethod PaymentMethod?
   source        ReceiptSource
   capturedAt    DateTime      @default(now())
   createdAt     DateTime      @default(now())
   // Populated once the Notion ledger sync succeeds; null means "not synced
   // yet" (e.g. NOTION_TOKEN isn't configured), not an error state.
   notionPageId  String?
+  // Slack message identity, for de-duplicating on Slack's automatic retries
+  // (it retries any event whose webhook ack takes too long or errors).
+  slackChannel  String?
+  slackTs       String?
 
   transactions TransactionReceipt[]
 
   @@index([capturedAt])
   @@index([propertyId])
+  @@index([slackChannel, slackTs])
 }
 
 // Generalizes receipt-recon's Charge (bofa.py/citi.py) and HDRow

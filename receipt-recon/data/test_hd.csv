@@ -1,0 +1,7 @@
+Home Depot Purchase Tracking Export
+Job Name Report
+Generated: 2026-07-01
+
+Date,Receipt Added Date,Order Origin,Purchaser/Buyer Name-ID,Transaction ID,Register Number,Job Name,Pre-tax Amount,Total Amount Paid,Order Number,Payment,Invoice Number
+2026-06-15,2026-06-15,In-Store,Drew M,TXN123,05,Wanderlust,45.00,48.94,ORD1,X-7990,INV1
+2026-06-20,2026-06-20,In-Store,Drew M,TXN124,05,Stallion Ranch,120.00,130.62,ORD2,X-7990,INV2

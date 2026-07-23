@@ -16,7 +16,8 @@ export interface LedgerRow {
   amountCents: number;
   property: string | null; // null => Company Overhead
   category: Category;
-  paymentMethod: PaymentMethod;
+  /** Null when the source (e.g. a Slack message) didn't state one. */
+  paymentMethod: PaymentMethod | null;
   needsReview: boolean;
   fileUrl?: string;
 }
@@ -47,7 +48,9 @@ export async function upsertLedgerRow(
     Amount: { number: row.amountCents / 100 },
     Property: { select: { name: row.property ?? "Company Overhead" } },
     Category: { select: { name: CATEGORY_LABELS[row.category] } },
-    "Payment Method": { select: { name: PAYMENT_METHOD_LABELS[row.paymentMethod] } },
+    "Payment Method": {
+      select: { name: row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod] : "Unspecified" },
+    },
     "Needs Review": { checkbox: row.needsReview },
     ...(row.fileUrl ? { File: { url: row.fileUrl } } : {}),
   };
