@@ -19,7 +19,7 @@ npm install
 cp .env.example .env.local   # generate AUTH_SECRET, see below
 npx prisma migrate dev       # creates prisma/dev.db
 npx tsx prisma/seed.ts       # seeds Property table + supply catalog
-npx tsx scripts/create-user.ts you@example.com "a strong password" "Your Name"
+npx tsx scripts/create-user.ts you@example.com "a strong password" "Your Name" --admin
 npm run dev
 ```
 
@@ -37,18 +37,21 @@ setup that only an account owner can click through.
 
 ### 1. Team logins (admin-assigned, no Google account needed)
 
-There's no OAuth and no self-service signup — you create each teammate's
-login directly:
+There's no OAuth and no self-service signup. Once at least one admin
+exists, day-to-day user management happens in the app itself at **/team**
+(admin-only — add a teammate, or re-enter an existing email with a new
+password to reset it).
+
+The very first admin has to be bootstrapped from the command line, since
+nobody can access /team before an admin exists:
 
 ```bash
-npx tsx scripts/create-user.ts drew@luxurydesertescapes.com "a strong password" "Drew"
-npx tsx scripts/create-user.ts july@luxurydesertescapes.com "a different password" "July"
+npx tsx scripts/create-user.ts you@luxurydesertescapes.com "a strong password" "Your Name" --admin
 ```
 
-Run it again with the same email to change someone's password (it upserts).
-Run it once locally now so you have a login to test with, and again against
-production once Postgres is set up (see below) — it just needs `DATABASE_URL`
-pointed at whichever database you want the login created in.
+Run the same command (drop `--admin` for a regular teammate) again against
+production once Postgres is set up — it just needs `DATABASE_URL` pointed
+at whichever database you want the login created in.
 
 ### 2. Google Drive storage (optional until you want real Drive filing)
 

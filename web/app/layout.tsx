@@ -3,6 +3,7 @@ import { Source_Sans_3, Geist_Mono } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { currentAdmin } from "@/lib/admin";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -35,6 +36,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  const admin = session ? await currentAdmin() : null;
+  const navItems = admin ? [...NAV_ITEMS, { href: "/team", label: "Team" }] : NAV_ITEMS;
 
   return (
     <html
@@ -57,7 +60,7 @@ export default async function RootLayout({
                   />
                 </Link>
                 <nav className="flex flex-wrap gap-4 text-sm font-medium">
-                  {NAV_ITEMS.map((item) => (
+                  {navItems.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}

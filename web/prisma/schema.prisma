@@ -48,6 +48,9 @@ model User {
   email        String   @unique
   passwordHash String
   name         String?
+  // Admins can create/update other team logins from /team; everyone else
+  // just signs in and uses the app.
+  isAdmin      Boolean  @default(false)
   createdAt    DateTime @default(now())
 }
 
