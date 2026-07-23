@@ -113,7 +113,7 @@ export default function NewReceiptForm({ properties }: Props) {
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+            className="rounded-md bg-brand-gold px-4 py-2 text-sm font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover"
           >
             📷 Take Photo
           </button>
@@ -208,7 +208,7 @@ export default function NewReceiptForm({ properties }: Props) {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="rounded-md bg-brand-gold px-4 py-2 text-sm font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover disabled:opacity-50"
       >
         {submitting ? "Submitting…" : "Submit Receipt"}
       </button>

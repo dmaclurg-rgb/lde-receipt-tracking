@@ -62,7 +62,7 @@ export default async function ReportsPage({
         </button>
         <a
           href={`/api/reports/export?month=${monthStr}`}
-          className="ml-auto underline"
+          className="ml-auto font-medium text-brand-gold underline hover:text-brand-gold-hover"
         >
           Export CSV
         </a>
@@ -93,7 +93,7 @@ export default async function ReportsPage({
         <p className="mt-4 text-sm text-amber-600">
           {money(needsReviewTotal)} in charges this month still need review and
           are excluded from the totals above — see the{" "}
-          <a href="/review?status=needs_review" className="underline">
+          <a href="/review?status=needs_review" className="font-medium underline">
             Review page
           </a>
           .

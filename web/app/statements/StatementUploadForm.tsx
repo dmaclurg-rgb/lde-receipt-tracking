@@ -69,7 +69,7 @@ export default function StatementUploadForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="rounded-md bg-brand-gold px-4 py-2 text-sm font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover disabled:opacity-50"
       >
         {submitting ? "Reconciling…" : "Reconcile"}
       </button>
@@ -84,7 +84,7 @@ export default function StatementUploadForm() {
               Could not detect file type for: {result.skippedFiles.join(", ")}
             </p>
           )}
-          <a href="/review" className="mt-3 inline-block underline">
+          <a href="/review" className="mt-3 inline-block font-medium text-brand-gold underline hover:text-brand-gold-hover">
             Go to Review →
           </a>
         </div>

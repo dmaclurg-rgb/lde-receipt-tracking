@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Source_Sans_3, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sourceSans = Source_Sans_3({
+  variable: "--font-source-sans",
   subsets: ["latin"],
 });
 
@@ -37,21 +38,36 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${sourceSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {session && (
-          <header className="border-b border-neutral-200 dark:border-neutral-800">
-            <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-              <nav className="flex flex-wrap gap-4 text-sm font-medium">
-                <Link href="/">LDE Receipts</Link>
-                {NAV_ITEMS.map((item) => (
-                  <Link key={item.href} href={item.href} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-              <div className="flex items-center gap-3 text-sm text-neutral-500">
+          <header className="bg-brand-dark border-b border-black/20">
+            <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-5">
+                <Link href="/" className="flex items-center">
+                  <Image
+                    src="/brand/logo-horizontal-white-gold.png"
+                    alt="Luxury Desert Escapes"
+                    width={180}
+                    height={50}
+                    priority
+                    className="h-9 w-auto"
+                  />
+                </Link>
+                <nav className="flex flex-wrap gap-4 text-sm font-medium">
+                  {NAV_ITEMS.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="text-neutral-300 transition-colors hover:text-brand-gold"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-neutral-400">
                 <span>{session.user?.email}</span>
                 <form
                   action={async () => {
@@ -59,7 +75,7 @@ export default async function RootLayout({
                     await signOut({ redirectTo: "/login" });
                   }}
                 >
-                  <button type="submit" className="underline">
+                  <button type="submit" className="text-neutral-300 underline hover:text-brand-gold">
                     Sign out
                   </button>
                 </form>

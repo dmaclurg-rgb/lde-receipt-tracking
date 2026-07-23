@@ -1,14 +1,27 @@
 @import "tailwindcss";
 
+/* Luxury Desert Escapes brand palette, sampled from luxurydesertescapes.com
+   and the logo files in Drive's "Logos & Print" folder: a near-black
+   charcoal header with a muted gold accent. */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --brand-dark: #1a1a1a;
+  --brand-dark-elevated: #262626;
+  --brand-gold: #c2a679;
+  --brand-gold-hover: #d4bb90;
+  --brand-gold-contrast: #1a1a1a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-dark-elevated: var(--brand-dark-elevated);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-hover: var(--brand-gold-hover);
+  --color-brand-gold-contrast: var(--brand-gold-contrast);
+  --font-sans: var(--font-source-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -22,5 +35,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-source-sans), Arial, Helvetica, sans-serif;
 }

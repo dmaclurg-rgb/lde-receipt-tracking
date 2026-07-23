@@ -22,7 +22,7 @@ export default async function Home() {
           <Link
             key={c.label}
             href={c.href}
-            className="rounded-lg border border-neutral-200 p-4 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+            className="rounded-lg border border-neutral-200 p-4 transition-colors hover:border-brand-gold hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
           >
             <div className="text-3xl font-semibold">{c.value}</div>
             <div className="text-sm text-neutral-500">{c.label}</div>
@@ -33,7 +33,7 @@ export default async function Home() {
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
           href="/receipts/new"
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+          className="rounded-md bg-brand-gold px-4 py-2 text-sm font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover"
         >
           + Add a receipt
         </Link>

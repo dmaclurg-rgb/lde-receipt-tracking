@@ -131,7 +131,7 @@ export default function ManualTransactionForm({
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="rounded bg-brand-gold px-3 py-1.5 text-sm font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover disabled:opacity-50"
       >
         {submitting ? "Saving…" : "Save"}
       </button>

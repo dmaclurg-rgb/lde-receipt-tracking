@@ -45,7 +45,7 @@ export default function AssignPropertyControl({ transactionId, properties }: Pro
       <button
         onClick={assign}
         disabled={saving}
-        className="rounded bg-black px-2 py-1 text-xs text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="rounded bg-brand-gold px-2 py-1 text-xs font-medium text-brand-gold-contrast transition-colors hover:bg-brand-gold-hover disabled:opacity-50"
       >
         Assign
       </button>

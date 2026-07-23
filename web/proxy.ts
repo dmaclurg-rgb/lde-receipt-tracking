@@ -14,5 +14,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Excludes framework internals, the favicon/app icon, and /public/brand
+  // (logo assets used on the unauthenticated login page itself).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|brand/).*)"],
 };
