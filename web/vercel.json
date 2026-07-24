@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/email-accounts/sync",
-      "schedule": "0 * * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/slack/sync",
-      "schedule": "15 * * * *"
+      "schedule": "15 13 * * *"
     }
   ]
 }

@@ -26,9 +26,9 @@
 
 ## Phase 3 — Email auto-ingestion (5 inboxes, hourly)
 
-- [x] Built: `/email-accounts` admin page to connect any inbox via its own Google OAuth grant (Gmail read-only scope — a service account can't reach personal `@gmail.com` inboxes the way it can a shared Drive folder); Gmail search for vendor order confirmations/invoices; PDF attachment (or rendered-body fallback) filed as a needs-review receipt; "Search Now" button + hourly Vercel Cron (`web/vercel.json`) hitting the same sync logic; a "Needs Review" assignment queue on `/review` since an order-confirmation email can't say which property it's for.
+- [x] Built: `/email-accounts` admin page to connect any inbox via its own Google OAuth grant (Gmail read-only scope — a service account can't reach personal `@gmail.com` inboxes the way it can a shared Drive folder); Gmail search for vendor order confirmations/invoices; PDF attachment (or rendered-body fallback) filed as a needs-review receipt; "Search Now" button + daily Vercel Cron (`web/vercel.json` — Hobby plan rejects an hourly schedule at deploy time, so it's once/day until upgrading to Pro) hitting the same sync logic; a "Needs Review" assignment queue on `/review` since an order-confirmation email can't say which property it's for.
 - [ ] Connect the actual inboxes: `drewmaclurg@gmail.com`, `luxurydesertescapes@gmail.com`, `dmaclurg@luxurydesertescapes.com`, `reservations@luxurydesertescapes.com`, `invoicelde@gmail.com` — click "+ Connect an Inbox" once per inbox on the deployed `/email-accounts` page.
-- **You'll need to provision:** a Google Cloud OAuth client (Gmail API enabled) — see `web/SETUP.md` §5 for exact steps — plus logging into each of the 5 inboxes once to grant access. Note: Vercel Hobby-tier Crons only run once/day, not hourly; use "Search Now" or upgrade to Pro if you need true hourly freshness.
+- **You'll need to provision:** a Google Cloud OAuth client (Gmail API enabled) — see `web/SETUP.md` §5 for exact steps — plus logging into each of the 5 inboxes once to grant access. Note: Vercel Hobby-tier Crons only run once/day (an hourly schedule fails the deploy outright); use "Search Now" or upgrade to Pro if you need more-than-daily freshness.
 
 ## Phase 4 — Reminders & subscription review
 

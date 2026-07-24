@@ -5,6 +5,11 @@
 # Claude Code local state
 .claude/
 
+# Vercel CLI local project link (not needed day-to-day — the dashboard's
+# Git integration is the source of truth; this was only for a one-off CLI
+# deploy when that integration's webhook broke)
+.vercel/
+
 # Node
 web/node_modules/
 web/.next/

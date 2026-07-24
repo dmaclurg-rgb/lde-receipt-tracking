@@ -178,11 +178,14 @@ Until `GOOGLE_GMAIL_CLIENT_ID`/`GOOGLE_GMAIL_CLIENT_SECRET` are set,
 **/email-accounts** just shows a "not configured yet" notice — nothing else
 breaks.
 
-**Note on Vercel's Hobby plan:** scheduled Crons on the free Hobby tier only
-run once a day (not hourly), regardless of the schedule in `vercel.json` —
-this is a Vercel platform limit, not something in this app's code. If
-you're on Hobby, hitting **Search Now** on /email-accounts manually (or
-upgrading to Pro) is what actually gets you hourly-equivalent freshness.
+**Note on Vercel's Hobby plan:** the free Hobby tier only allows Cron Jobs
+that run once a day — an hourly schedule isn't just throttled, it makes
+the *entire deployment fail* (`vercel.json`'s crons are validated at
+deploy time). Both jobs in `web/vercel.json` are set to run once daily
+(1:00pm and 1:15pm UTC) for this reason. If you upgrade to Pro later, you
+can tighten the schedule back to hourly (`0 * * * *`); until then, hitting
+**Search Now** on /email-accounts manually is how you get more-than-daily
+freshness.
 
 ### 6. Forgot-password admin notification (optional until you want it live)
 
