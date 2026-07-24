@@ -2,7 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { upsertLedgerRow } from "@/lib/notion";
 import { OVERHEAD_OPTION_VALUE } from "@/lib/constants";
-import type { Category, PaymentMethod, Receipt, ReceiptSource } from "@prisma/client";
+import { recordConfirmedAssignment } from "@/lib/vendor-history";
+import { findMatchingTransaction } from "@/lib/transaction-match";
+import type { Category, PaymentMethod, Receipt, ReceiptSource, ResolutionSource } from "@prisma/client";
 
 export interface CreateReceiptParams {
   buffer: Buffer;
@@ -22,6 +24,33 @@ export interface CreateReceiptParams {
   slackChannel?: string;
   slackTs?: string;
   emailMessageId?: string;
+  /**
+   * Only used when `property` is null — a rule-based or vendor-history
+   * guess to pre-fill category/propertyId with. Still leaves the receipt
+   * needsReview: true; this is a suggestion for the Review page, never an
+   * authoritative assignment. See lib/transaction-resolution.ts.
+   */
+  propertySuggestion?: {
+    propertyId: string | null;
+    isOverhead: boolean;
+    resolvedBy: ResolutionSource;
+  } | null;
+  /**
+   * True only for call sites where a human directly picked `property`
+   * themselves (the app upload form) — records the assignment into the
+   * vendor-history learning log. Never set true for auto-ingestion, even
+   * when a suggestion above was accepted, since accepting a suggestion
+   * happens later via the PATCH route, not at creation time.
+   */
+  isHumanConfirmed?: boolean;
+  /**
+   * A dollar amount extracted from the source text (email body/subject, or
+   * a Slack caption) — only used when `property` is null. If it exactly
+   * matches an existing card-statement Transaction within +/- 10 days, the
+   * receipt is auto-linked to that charge instead of landing in the
+   * standalone needs-review queue. See lib/transaction-match.ts.
+   */
+  amountHintCents?: number;
 }
 
 export class UnknownPropertyError extends Error {}
@@ -34,7 +63,7 @@ export class UnknownPropertyError extends Error {}
  * active, creating the Prisma row, and syncing it to the Notion ledger.
  */
 export async function createReceipt(params: CreateReceiptParams): Promise<Receipt> {
-  const needsReview = params.property === null;
+  let needsReview = params.property === null;
   const isOverhead = params.property === OVERHEAD_OPTION_VALUE;
   const propertyRecord =
     needsReview || isOverhead
@@ -44,9 +73,47 @@ export async function createReceipt(params: CreateReceiptParams): Promise<Receip
     throw new UnknownPropertyError(`Unknown property: ${params.property}`);
   }
 
-  const category: Category | null = needsReview ? null : isOverhead ? "overhead" : "property";
   const capturedAt = params.capturedAt ?? new Date();
-  const folderLabel = needsReview ? "Needs Review" : isOverhead ? "Company Overhead" : propertyRecord!.name;
+
+  let category: Category | null = needsReview ? null : isOverhead ? "overhead" : "property";
+  let suggestedPropertyId: string | undefined;
+  let resolvedBy: ResolutionSource | null = null;
+  let matchedTransactionId: string | null = null;
+  let matchedTransactionPropertyName: string | null = null;
+
+  if (needsReview && params.amountHintCents != null) {
+    // An exact amount+date match to a real card charge is a much stronger
+    // signal than a vendor-name guess, so it takes priority over the
+    // suggestion below — and unlike a suggestion, it's confident enough to
+    // resolve the receipt outright rather than just pre-filling a form.
+    const matched = await findMatchingTransaction(params.amountHintCents, capturedAt);
+    if (matched) {
+      category = matched.category;
+      suggestedPropertyId = matched.propertyId ?? undefined;
+      matchedTransactionId = matched.id;
+      needsReview = false;
+      if (matched.propertyId) {
+        const p = await prisma.property.findUnique({ where: { id: matched.propertyId } });
+        matchedTransactionPropertyName = p?.name ?? null;
+      }
+    }
+  }
+  if (needsReview && params.propertySuggestion) {
+    category = params.propertySuggestion.isOverhead ? "overhead" : "property";
+    suggestedPropertyId = params.propertySuggestion.propertyId ?? undefined;
+    resolvedBy = params.propertySuggestion.resolvedBy;
+  }
+  // Storage foldering is unaffected by a suggestion — it's still
+  // unconfirmed, so the file goes to the same review-queue location as any
+  // other needs-review receipt until an admin actually confirms it. A
+  // transaction-amount match is confident enough to file for real, though.
+  const folderLabel = needsReview
+    ? "Needs Review"
+    : matchedTransactionId
+      ? (matchedTransactionPropertyName ?? "Company Overhead")
+      : isOverhead
+        ? "Company Overhead"
+        : propertyRecord!.name;
 
   const stored = await storage.save({
     buffer: params.buffer,
@@ -66,17 +133,28 @@ export async function createReceipt(params: CreateReceiptParams): Promise<Receip
       mimeType: params.mimeType,
       uploadedBy: params.uploadedBy,
       category,
-      propertyId: propertyRecord?.id,
+      propertyId: propertyRecord?.id ?? suggestedPropertyId,
       description: params.description,
       paymentMethod: params.paymentMethod,
       source: params.source,
       capturedAt,
       needsReview,
+      resolvedBy,
       slackChannel: params.slackChannel,
       slackTs: params.slackTs,
       emailMessageId: params.emailMessageId,
     },
   });
+
+  if (matchedTransactionId) {
+    await prisma.transactionReceipt.create({
+      data: { transactionId: matchedTransactionId, receiptId: receipt.id },
+    });
+  }
+
+  if (params.isHumanConfirmed && !needsReview && category) {
+    await recordConfirmedAssignment("receipt", params.description, category, propertyRecord?.id ?? null, params.uploadedBy);
+  }
 
   const notionPageId = await upsertLedgerRow({
     title: params.description,

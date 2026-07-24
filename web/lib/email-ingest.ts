@@ -1,6 +1,8 @@
 import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/prisma";
 import { createReceipt } from "@/lib/receipts";
+import { resolveReceiptSuggestion } from "@/lib/receipt-resolution";
+import { extractAmountCents } from "@/lib/amount-extract";
 import { searchVendorEmails, type EmailMatch } from "@/lib/gmail";
 
 const DEFAULT_LOOKBACK_DAYS = 14;
@@ -59,6 +61,17 @@ export async function syncEmailAccount(accountId: string): Promise<SyncResult> {
       const filename = picked?.filename ?? `${match.subject.slice(0, 60).replace(/[/\\]/g, "-")}.pdf`;
       const mimeType = picked?.mimeType ?? "application/pdf";
 
+      // Email subject/body is machine-generated vendor copy, not a human
+      // describing the purchase (unlike a Slack caption) — so unlike
+      // Slack, a resolution hit here is only ever passed through as a
+      // suggestion, never auto-confirmed. See resolveReceiptSuggestion.
+      const propertySuggestion = await resolveReceiptSuggestion(match.subject).catch(() => null);
+      // Vendor emails usually state the charged amount somewhere in the
+      // subject/body — if we can confidently pick out one dollar figure,
+      // createReceipt() tries to auto-link this to the matching card
+      // charge instead of leaving it as a standalone needs-review item.
+      const amountHintCents = extractAmountCents(`${match.subject}\n${match.bodyText}`) ?? undefined;
+
       await createReceipt({
         buffer,
         filename,
@@ -70,6 +83,8 @@ export async function syncEmailAccount(accountId: string): Promise<SyncResult> {
         uploadedBy: account.email,
         capturedAt: match.date,
         emailMessageId: match.messageId,
+        propertySuggestion,
+        amountHintCents,
       });
       created++;
     }

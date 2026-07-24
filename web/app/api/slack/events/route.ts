@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createReceipt } from "@/lib/receipts";
 import { resolvePropertyFromText } from "@/lib/matching-service";
+import { resolveReceiptSuggestion } from "@/lib/receipt-resolution";
+import { extractAmountCents } from "@/lib/amount-extract";
 import { OVERHEAD_OPTION_VALUE, detectPaymentMethodFromText } from "@/lib/constants";
 import {
   verifySlackSignature,
@@ -113,11 +115,20 @@ export async function POST(request: Request) {
     }
   }
 
+  // Alias resolution missed — try vendor history / a second alias pass as a
+  // suggestion only (createReceipt still leaves this needsReview: true);
+  // doesn't touch the auto-confirm case above.
+  const propertySuggestion = property === null ? await resolveReceiptSuggestion(text).catch(() => null) : null;
+  // Only matters when property resolution above came up empty —
+  // createReceipt() ignores this whenever a property was resolved.
+  const amountHintCents = property === null ? (extractAmountCents(text) ?? undefined) : undefined;
+
   const uploadedBy = event.user ? await lookupSlackUserEmail(event.user) : "slack";
 
+  let autoMatchedByAmount = false;
   for (const file of files) {
     const buffer = await downloadSlackFile(file);
-    await createReceipt({
+    const receipt = await createReceipt({
       buffer,
       filename: file.name || `slack-${file.id}`,
       mimeType: file.mimetype || "application/octet-stream",
@@ -128,14 +139,19 @@ export async function POST(request: Request) {
       uploadedBy,
       slackChannel: event.channel,
       slackTs: event.ts,
+      propertySuggestion,
+      amountHintCents,
     });
+    if (property === null && !receipt.needsReview) autoMatchedByAmount = true;
   }
 
   const confirmation = propertyName
     ? `✅ Logged to *${propertyName}*.`
     : property === OVERHEAD_OPTION_VALUE
       ? `✅ Logged under *Company Overhead*.`
-      : `✅ Logged — I couldn't tell which property this was for from your message, so it's in the Review queue in the app for someone to assign.`;
+      : autoMatchedByAmount
+        ? `✅ Logged — matched to an existing card charge by amount, so it's already linked in the app.`
+        : `✅ Logged — I couldn't tell which property this was for from your message, so it's in the Review queue in the app for someone to assign.`;
   await postSlackReply({ channel: event.channel, threadTs: event.ts, text: confirmation });
 
   return NextResponse.json({ ok: true });

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { createReceipt } from "@/lib/receipts";
 import { resolvePropertyFromText } from "@/lib/matching-service";
+import { resolveReceiptSuggestion } from "@/lib/receipt-resolution";
+import { extractAmountCents } from "@/lib/amount-extract";
 import { detectPaymentMethodFromText, OVERHEAD_OPTION_VALUE } from "@/lib/constants";
 import { listChannelsToSearch, fetchChannelHistory, downloadSlackFile, lookupSlackUserEmail } from "@/lib/slack";
 
@@ -47,6 +49,9 @@ export async function syncSlackHistory(): Promise<SlackSyncResult[]> {
         const text = (message.text ?? "").trim();
         const description = text || "(no description provided in Slack)";
         const paymentMethod = detectPaymentMethodFromText(text);
+        // Only matters when property resolution below comes up empty —
+        // createReceipt() ignores this whenever a property was resolved.
+        const amountHintCents = extractAmountCents(text) ?? undefined;
 
         let resolvedHouse: string | null = null;
         try {
@@ -61,6 +66,11 @@ export async function syncSlackHistory(): Promise<SlackSyncResult[]> {
           const record = await prisma.property.findUnique({ where: { name: resolvedHouse } });
           if (record) property = record.id;
         }
+
+        // Alias resolution missed — try vendor history / a second alias
+        // pass as a suggestion only (createReceipt still leaves this
+        // needsReview: true); doesn't touch the auto-confirm case above.
+        const propertySuggestion = property === null ? await resolveReceiptSuggestion(text).catch(() => null) : null;
 
         const uploadedBy = message.user ? await lookupSlackUserEmail(message.user) : "slack";
 
@@ -77,6 +87,8 @@ export async function syncSlackHistory(): Promise<SlackSyncResult[]> {
             uploadedBy,
             slackChannel: channel,
             slackTs: message.ts,
+            propertySuggestion,
+            amountHintCents,
           });
         }
         created++;
