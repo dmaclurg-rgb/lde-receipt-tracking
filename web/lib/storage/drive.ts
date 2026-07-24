@@ -36,6 +36,11 @@ async function findOrCreateFolder(
     q: `'${parentId}' in parents and name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
     fields: "files(id, name)",
     spaces: "drive",
+    // Required for the query to see into a Shared Drive at all — without
+    // these, Shared Drive contents are silently invisible to files.list.
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    corpora: "allDrives",
   });
   const existing = res.data.files?.[0];
   if (existing?.id) return existing.id;
@@ -47,6 +52,7 @@ async function findOrCreateFolder(
       parents: [parentId],
     },
     fields: "id",
+    supportsAllDrives: true,
   });
   if (!created.data.id) throw new Error(`Failed to create Drive folder "${name}"`);
   return created.data.id;
@@ -81,6 +87,7 @@ export const googleDriveAdapter: StorageAdapter = {
       requestBody: { name: filename, parents: [propertyFolder] },
       media: { mimeType, body: Readable.from(buffer) },
       fields: "id, webViewLink",
+      supportsAllDrives: true,
     });
 
     if (!created.data.id) throw new Error("Google Drive upload did not return a file id");
@@ -91,7 +98,7 @@ export const googleDriveAdapter: StorageAdapter = {
     if (!fileId) throw new Error("googleDriveAdapter.read requires fileId");
     const drive = driveClient();
     const res = await drive.files.get(
-      { fileId, alt: "media" },
+      { fileId, alt: "media", supportsAllDrives: true },
       { responseType: "arraybuffer" }
     );
     return Buffer.from(res.data as ArrayBuffer);

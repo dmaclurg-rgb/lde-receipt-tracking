@@ -53,22 +53,36 @@ Run the same command (drop `--admin` for a regular teammate) again against
 production once Postgres is set up — it just needs `DATABASE_URL` pointed
 at whichever database you want the login created in.
 
-### 2. Google Drive storage (optional until you want real Drive filing)
+### 2. Google Drive storage (optional in dev; falls back to local disk — but
+    **required** in production, since Vercel's serverless functions can't
+    write to local disk at all)
+
+**Important:** the target folder must live inside a **Shared Drive**, not a
+regular personal "My Drive" folder. Service accounts have zero storage quota
+of their own — Google's Drive API rejects file uploads into a personal
+folder shared with a service account (`403: Service Accounts do not have
+storage quota`), even with Editor access. Shared Drives are the supported
+way around this; every Drive API call in `lib/storage/drive.ts` passes
+`supportsAllDrives: true` to work with one.
 
 1. In the same Google Cloud project, enable the **Google Drive API**.
 2. Create a **service account**, generate a JSON key for it.
-3. Share the target Drive folder (e.g. the existing
-   "Vendor Invoices & Receipts - Tax 2026" folder) with the service
-   account's email address (looks like
-   `something@your-project.iam.gserviceaccount.com`), Editor access.
-4. Put the JSON in `.env.local` as `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON`
+3. In Google Drive, create (or use an existing) **Shared Drive** — left
+   sidebar → "Shared drives" → **+ New**. (If you don't see "Shared drives"
+   at all, your Google Workspace plan doesn't include them — Business
+   Starter and up do.)
+4. Add the service account as a **member** of that Shared Drive (Manage
+   members → add its email, e.g.
+   `something@your-project.iam.gserviceaccount.com`, as Content Manager).
+5. Put the JSON in `.env.local` as `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON`
    (paste the whole thing on one line) or save it to a file and point
    `GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE` at it.
-5. Set `GOOGLE_DRIVE_ROOT_FOLDER_ID` to that folder's ID (the long string in
-   its Drive URL).
+6. Set `GOOGLE_DRIVE_ROOT_FOLDER_ID` to the Shared Drive's ID (or a specific
+   folder's ID inside it) — the long string in its Drive URL.
 
-Until this is set, files save under `web/local-storage/` instead — nothing
-else breaks.
+Until this is set, files save under `web/local-storage/` instead in local
+dev — but on Vercel, every receipt upload will fail outright until this is
+configured, since there's no writable local disk in production.
 
 ### 3. Notion ledger (optional until you want the team-browsable ledger)
 
