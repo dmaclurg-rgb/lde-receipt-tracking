@@ -73,6 +73,11 @@ model Receipt {
   fileId        String?
   fileUrl       String?
   storagePath   String?
+  // Original filename + mime type, captured at upload time — needed to read
+  // the file back out of storage (e.g. the audit-packet PDF export) without
+  // guessing from the storage path.
+  filename      String?
+  mimeType      String?
   uploadedBy    String
   category      Category
   propertyId    String?
@@ -120,6 +125,10 @@ model Transaction {
   isSplit       Boolean           @default(false)
   sourceFile    String?
   notionPageId  String?
+  // Free-text admin annotation shown/edited inline on the Review page —
+  // e.g. why a charge was categorized a certain way, context for an
+  // unusual amount.
+  notes         String?
   createdAt     DateTime          @default(now())
 
   receipts TransactionReceipt[]

@@ -5,6 +5,7 @@ import { currentAdmin } from "@/lib/admin";
 import { CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/constants";
 import AssignPropertyControl from "./AssignPropertyControl";
 import ManualTransactionForm from "./ManualTransactionForm";
+import NotesField from "./NotesField";
 
 function money(cents: number): string {
   const dollars = cents / 100;
@@ -80,6 +81,7 @@ export default async function ReviewPage({
               <th className="py-2 pr-3">Property / Category</th>
               <th className="py-2 pr-3">Receipts</th>
               <th className="py-2 pr-3">Status</th>
+              <th className="py-2 pr-3">Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -108,11 +110,14 @@ export default async function ReviewPage({
                     </span>
                   )}
                 </td>
+                <td className="py-2 pr-3">
+                  <NotesField transactionId={t.id} initialNotes={t.notes ?? ""} />
+                </td>
               </tr>
             ))}
             {transactions.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-neutral-500">
+                <td colSpan={8} className="py-6 text-center text-neutral-500">
                   No transactions yet — upload a statement or log a manual entry above.
                 </td>
               </tr>

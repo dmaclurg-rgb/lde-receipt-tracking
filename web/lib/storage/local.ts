@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { StorageAdapter, StoredFile } from "./types";
 
@@ -28,5 +28,15 @@ export const localStorageAdapter: StorageAdapter = {
       storagePath: relPath,
       fileUrl: `/api/files/${relPath.split(path.sep).join("/")}`,
     };
+  },
+
+  async read({ storagePath }): Promise<Buffer> {
+    if (!storagePath) throw new Error("localStorageAdapter.read requires storagePath");
+    const resolved = path.join(ROOT, storagePath);
+    // Guard against path traversal, same check as app/api/files/[...path].
+    if (!resolved.startsWith(ROOT + path.sep) && resolved !== ROOT) {
+      throw new Error("Invalid storage path");
+    }
+    return readFile(resolved);
   },
 };

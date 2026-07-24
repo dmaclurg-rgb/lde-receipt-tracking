@@ -20,4 +20,11 @@ export interface StorageAdapter {
     month: number; // 1-12
     folderLabel: string; // property name or "Company Overhead"
   }): Promise<StoredFile>;
+
+  /**
+   * Reads a previously-saved file back out, e.g. to embed a receipt photo
+   * in the audit-packet PDF. Pass whichever of (fileId) or (storagePath)
+   * the record has — exactly one will be set, matching the active adapter.
+   */
+  read(ref: { fileId?: string | null; storagePath?: string | null }): Promise<Buffer>;
 }

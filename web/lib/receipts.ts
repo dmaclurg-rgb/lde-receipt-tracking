@@ -55,6 +55,8 @@ export async function createReceipt(params: CreateReceiptParams): Promise<Receip
       fileId: stored.fileId,
       fileUrl: stored.fileUrl,
       storagePath: stored.storagePath,
+      filename: params.filename,
+      mimeType: params.mimeType,
       uploadedBy: params.uploadedBy,
       category,
       propertyId: propertyRecord?.id,

@@ -64,13 +64,25 @@ export default async function ReportsPage({
         <button type="submit" className="rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700">
           Go
         </button>
-        <a
-          href={`/api/reports/export?month=${monthStr}`}
-          className="ml-auto font-medium text-brand-gold underline hover:text-brand-gold-hover"
-        >
-          Export CSV
-        </a>
+        <div className="ml-auto flex gap-4">
+          <a
+            href={`/api/reports/export?month=${monthStr}`}
+            className="font-medium text-brand-gold underline hover:text-brand-gold-hover"
+          >
+            Export CSV
+          </a>
+          <a
+            href={`/api/reports/audit-packet?month=${monthStr}`}
+            className="font-medium text-brand-gold underline hover:text-brand-gold-hover"
+          >
+            Download Audit Packet (PDF)
+          </a>
+        </div>
       </form>
+      <p className="mb-4 -mt-2 text-xs text-neutral-500">
+        The audit packet lists every transaction and every receipt on file for the month, with
+        receipt photos embedded — hand this to an accountant or the IRS as-is.
+      </p>
 
       <table className="w-full text-left text-sm">
         <thead className="border-b border-neutral-200 text-neutral-500 dark:border-neutral-800">

@@ -86,4 +86,14 @@ export const googleDriveAdapter: StorageAdapter = {
     if (!created.data.id) throw new Error("Google Drive upload did not return a file id");
     return { fileId: created.data.id, fileUrl: created.data.webViewLink ?? undefined };
   },
+
+  async read({ fileId }): Promise<Buffer> {
+    if (!fileId) throw new Error("googleDriveAdapter.read requires fileId");
+    const drive = driveClient();
+    const res = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "arraybuffer" }
+    );
+    return Buffer.from(res.data as ArrayBuffer);
+  },
 };
