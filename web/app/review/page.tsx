@@ -6,6 +6,7 @@ import { CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/constants";
 import AssignPropertyControl from "./AssignPropertyControl";
 import ManualTransactionForm from "./ManualTransactionForm";
 import NotesField from "./NotesField";
+import ReceiptMatcher from "./ReceiptMatcher";
 
 function money(cents: number): string {
   const dollars = cents / 100;
@@ -98,7 +99,17 @@ export default async function ReviewPage({
                     <span>{t.property?.name ?? (t.category ? CATEGORY_LABELS[t.category] : "—")}</span>
                   )}
                 </td>
-                <td className="py-2 pr-3">{t.receipts.length}</td>
+                <td className="py-2 pr-3">
+                  <ReceiptMatcher
+                    transactionId={t.id}
+                    linked={t.receipts.map((tr) => ({
+                      id: tr.receipt.id,
+                      description: tr.receipt.description,
+                      capturedAt: tr.receipt.capturedAt.toISOString(),
+                      fileUrl: tr.receipt.fileUrl,
+                    }))}
+                  />
+                </td>
                 <td className="py-2 pr-3">
                   {t.needsReview ? (
                     <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900 dark:text-amber-100">

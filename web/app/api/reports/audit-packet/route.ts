@@ -3,6 +3,7 @@ import { currentAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { PAYMENT_METHOD_LABELS, CATEGORY_LABELS } from "@/lib/constants";
+import type { Receipt } from "@prisma/client";
 
 function monthBounds(monthStr: string): { start: Date; end: Date } {
   const [y, m] = monthStr.split("-").map(Number);
@@ -22,6 +23,32 @@ function isEmbeddableImage(mimeType: string | null): boolean {
   return mimeType === "image/jpeg" || mimeType === "image/png";
 }
 
+async function renderReceipt(doc: PDFKit.PDFDocument, r: Receipt) {
+  if (doc.y > doc.page.height - 260) doc.addPage();
+  doc.fontSize(9).fillColor("#333").text(r.description);
+  doc.fontSize(8).fillColor("#999").text(`Uploaded by ${r.uploadedBy}`);
+  doc.fillColor("#000");
+  doc.moveDown(0.2);
+
+  if (isEmbeddableImage(r.mimeType)) {
+    try {
+      const buffer = await storage.read({ fileId: r.fileId, storagePath: r.storagePath });
+      if (doc.y > doc.page.height - 260) doc.addPage();
+      doc.image(buffer, { fit: [200, 200] });
+    } catch {
+      doc.fontSize(9).fillColor("#c00").text("(Could not load receipt image)");
+      doc.fillColor("#000");
+    }
+  } else if (r.fileUrl) {
+    doc.fontSize(9).fillColor("#0066cc").text(`Attachment: ${r.filename ?? "file"}`, {
+      link: r.fileUrl,
+      underline: true,
+    });
+    doc.fillColor("#000");
+  }
+  doc.moveDown(0.6);
+}
+
 export async function GET(request: Request) {
   if (!(await currentAdmin())) return new Response("Forbidden", { status: 403 });
 
@@ -32,7 +59,7 @@ export async function GET(request: Request) {
   const [transactions, receipts] = await Promise.all([
     prisma.transaction.findMany({
       where: { txnDate: { gte: start, lt: end } },
-      include: { property: true },
+      include: { property: true, receipts: { include: { receipt: true } } },
       orderBy: { txnDate: "asc" },
     }),
     prisma.receipt.findMany({
@@ -41,6 +68,11 @@ export async function GET(request: Request) {
       orderBy: { capturedAt: "asc" },
     }),
   ]);
+
+  const matchedReceiptIds = new Set(
+    transactions.flatMap((t) => t.receipts.map((tr) => tr.receipt.id))
+  );
+  const unmatchedReceipts = receipts.filter((r) => !matchedReceiptIds.has(r.id));
 
   const doc = new PDFDocument({ margin: 50, autoFirstPage: false });
   const chunks: Buffer[] = [];
@@ -64,12 +96,13 @@ export async function GET(request: Request) {
   doc.fillColor("#000");
   doc.moveDown(2);
   doc.fontSize(10).text(
-    `${transactions.length} transaction${transactions.length === 1 ? "" : "s"} and ` +
-      `${receipts.length} receipt${receipts.length === 1 ? "" : "s"} on file for this period. ` +
-      `Generated ${new Date().toISOString().slice(0, 10)}.`
+    `${transactions.length} transaction${transactions.length === 1 ? "" : "s"}, ` +
+      `${matchedReceiptIds.size} matched to a specific transaction, and ` +
+      `${unmatchedReceipts.length} additional receipt${unmatchedReceipts.length === 1 ? "" : "s"} on file ` +
+      `not yet matched to one. Generated ${new Date().toISOString().slice(0, 10)}.`
   );
 
-  // --- Section 1: Transactions ---
+  // --- Section 1: Transactions, with their matched receipt photos inline ---
   doc.addPage();
   doc.fontSize(16).text("Transactions", { underline: true });
   doc.moveDown(0.5);
@@ -89,57 +122,44 @@ export async function GET(request: Request) {
       doc.fontSize(9).fillColor("#777").text(`Note: ${t.notes}`);
     }
     doc.fillColor("#000");
-    doc.moveDown(0.75);
+    doc.moveDown(0.4);
+
+    for (const tr of t.receipts) {
+      await renderReceipt(doc, tr.receipt);
+    }
+    if (t.receipts.length === 0) {
+      doc.fontSize(8).fillColor("#c00").text("No receipt matched to this charge.");
+      doc.fillColor("#000");
+    }
+    doc.moveDown(0.5);
   }
   if (transactions.length === 0) {
     doc.fontSize(10).fillColor("#777").text("No transactions recorded for this period.");
     doc.fillColor("#000");
   }
 
-  // --- Section 2: Receipts on file, with photos ---
+  // --- Section 2: Receipts on file not yet matched to a transaction ---
   doc.addPage();
-  doc.fontSize(16).text("Receipts on File", { underline: true });
+  doc.fontSize(16).text("Unmatched Receipts", { underline: true });
   doc.moveDown(0.3);
   doc.fontSize(9).fillColor("#777").text(
-    "Every receipt captured this period, with its photo where available. Not yet " +
-      "matched line-by-line to a specific transaction above — cross-reference by date/amount."
+    "Receipts captured this period that haven't been matched to a specific transaction " +
+      "above yet (see the Review page to match them)."
   );
   doc.fillColor("#000");
   doc.moveDown(1);
 
-  for (const r of receipts) {
+  for (const r of unmatchedReceipts) {
     if (doc.y > doc.page.height - 220) doc.addPage();
-
     const propertyLabel = r.property?.name ?? CATEGORY_LABELS[r.category];
     doc.fontSize(10).fillColor("#000").text(
       `${r.capturedAt.toISOString().slice(0, 10)}   ${propertyLabel}` +
         (r.paymentMethod ? `   ${PAYMENT_METHOD_LABELS[r.paymentMethod]}` : "")
     );
-    doc.fontSize(10).fillColor("#333").text(r.description);
-    doc.fontSize(8).fillColor("#999").text(`Uploaded by ${r.uploadedBy}`);
-    doc.fillColor("#000");
-    doc.moveDown(0.3);
-
-    if (isEmbeddableImage(r.mimeType)) {
-      try {
-        const buffer = await storage.read({ fileId: r.fileId, storagePath: r.storagePath });
-        if (doc.y > doc.page.height - 260) doc.addPage();
-        doc.image(buffer, { fit: [220, 220] });
-      } catch {
-        doc.fontSize(9).fillColor("#c00").text("(Could not load receipt image)");
-        doc.fillColor("#000");
-      }
-    } else if (r.fileUrl) {
-      doc.fontSize(9).fillColor("#0066cc").text(`Attachment: ${r.filename ?? "file"}`, {
-        link: r.fileUrl,
-        underline: true,
-      });
-      doc.fillColor("#000");
-    }
-    doc.moveDown(1);
+    await renderReceipt(doc, r);
   }
-  if (receipts.length === 0) {
-    doc.fontSize(10).fillColor("#777").text("No receipts on file for this period.");
+  if (unmatchedReceipts.length === 0) {
+    doc.fontSize(10).fillColor("#777").text("All receipts this period are matched to a transaction.");
     doc.fillColor("#000");
   }
 
